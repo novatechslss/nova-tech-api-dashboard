@@ -1,15 +1,20 @@
 export function generateCodeExamples({ url, method = 'GET', body = '', headers = {} }) {
   const finalUrl = String(url || '');
   const safeUrl = JSON.stringify(finalUrl);
-  const prettyBody = body && typeof body === 'string' ? body : '';
-  const headerJson = JSON.stringify(headers, null, 2) || '{}';
-  const requestBody = prettyBody ? `\n  body: ${JSON.stringify(prettyBody)}` : '';
+  const cleanHeaders = headers || {};
+  const headerJson = JSON.stringify(cleanHeaders, null, 2);
+  const prettyBody = typeof body === 'string' ? body : JSON.stringify(body ?? '', null, 2);
 
-  const curl = `curl --request ${method.toUpperCase()} \\\n  --url ${safeUrl} \\\n  --header 'Content-Type: application/json'${prettyBody ? ` \\\n  --data '${prettyBody.replace(/'/g, "'\\''")}'` : ''}`;
+  const curlBody = prettyBody
+    ? ` \\\n  --header 'Content-Type: application/json' \\\n  --data '${prettyBody.replace(/'/g, "'\\''")}'`
+    : '';
+
+  const curl = `curl --request ${method.toUpperCase()} \\\n  --url ${safeUrl} \\\n  --header 'Accept: application/json'${curlBody}`;
 
   const fetchExample = `fetch(${safeUrl}, {
   method: '${method.toUpperCase()}',
-  headers: ${headerJson},${requestBody}
+  headers: ${headerJson},${prettyBody ? `
+  body: ${JSON.stringify(prettyBody)},` : ''}
 })
   .then(async (response) => {
     const data = await response.json();

@@ -1,92 +1,64 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { TerminalSquare, ShieldCheck, BookOpenText } from 'lucide-react';
 import apiLibrary from '../data/apiLibrary';
 
 export default function DocumentationPage() {
+  const categories = [...new Set(apiLibrary.map((api) => api.category))];
+  const [active, setActive] = useState('Overview');
+
+  const sections = useMemo(
+    () => ({
+      Overview:
+        'NOVA TECH API is a premium public API browser and request-testing console built with Vite and React. It provides local session tracking, real HTTP testing, response inspection, and code generation for cURL, JavaScript Fetch, and Python Requests.',
+      'API Modules': `The platform currently includes ${apiLibrary.length} modules across categories such as ${categories.join(', ')}.`,
+      'HTTP Methods': 'Use standard methods such as GET, POST, PUT, PATCH, and DELETE based on the API contract. Health and data endpoints are usually GET, while write operations are POST or PUT.',
+      'CORS & Errors': 'When browser CORS blocks access, the UI reports that the server availability cannot be confirmed instead of incorrectly saying the API is offline.',
+      Security: 'All URLs are validated to allow only http:// and https://. Responses are rendered as safe text and never executed as HTML or JavaScript.',
+      'Adding APIs': 'Add a new API by extending the apiLibrary configuration and linking the route to the shared module page.',
+    }),
+    [categories]
+  );
+
   return (
-    <div>
+    <div className="documentation-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Documentation</h1>
-          <p className="page-subtitle">Developer guide, configuration, API authentication, error handling, and CORS behavior.</p>
+          <div className="eyebrow">DOCS</div>
+          <h1 className="page-title">Developer Documentation</h1>
+          <p className="page-subtitle">Learn how the dashboard works, how to interpret results, and how to safely test public endpoints.</p>
         </div>
       </div>
 
-      <div className="panel">
-        <h3>Getting started</h3>
-        <p className="small">
-          NOVA TECH API dashboard provides a centralized hub for testing and documenting public APIs. Each API module
-          includes real-time health checks, request/response inspection, automatic code generation for cURL, Fetch, and Python,
-          and local session-based statistics.
-        </p>
-        <p className="small">
-          <strong>No authentication required.</strong> This is a public developer tool with no login, database, or user accounts.
-        </p>
-      </div>
-
-      <div className="grid-two mt-2">
-        <div className="panel">
-          <h3>How it works</h3>
-          <p className="small">
-            <strong>1. Select an API module</strong> from the directory or browse by category.
-          </p>
-          <p className="small">
-            <strong>2. Verify the endpoint URL</strong> and choose an HTTP method (GET, POST, PUT, DELETE).
-          </p>
-          <p className="small">
-            <strong>3. Click "Test API"</strong> to make a real fetch request and inspect the live response.
-          </p>
-          <p className="small">
-            <strong>4. Copy generated code</strong> for cURL, JavaScript Fetch, or Python Requests.
-          </p>
-          <p className="small">
-            <strong>5. Monitor metrics</strong> — total requests, success/failure counts, and average response time are tracked locally.
-          </p>
+      <div className="two-column-grid">
+        <div className="panel sidebar-doc-nav">
+          <div className="panel-header">
+            <h3>Contents</h3>
+          </div>
+          <div className="doc-nav-list">
+            {Object.keys(sections).map((key) => (
+              <button key={key} type="button" className={`doc-nav-item ${active === key ? 'active' : ''}`} onClick={() => setActive(key)}>
+                {key}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="panel">
-          <h3>Important notes</h3>
-          <p className="small">
-            <strong>Local statistics only:</strong> All metrics are stored in the browser session. They are not sent to a server.
-          </p>
-          <p className="small">
-            <strong>CORS awareness:</strong> If a public API blocks browser requests due to CORS, the UI will show "Blocked" and display
-            an informational message instead of falsely reporting the server as offline.
-          </p>
-          <p className="small">
-            <strong>No API keys embedded:</strong> Private credentials are never stored or transmitted. Use environment variables
-            or backend proxies for authenticated APIs.
-          </p>
-          <p className="small">
-            <strong>Rate limits:</strong> Some public APIs may rate-limit requests. The dashboard respects their policies.
-          </p>
-        </div>
-      </div>
-
-      <div className="panel mt-2">
-        <h3>Supported APIs</h3>
-        <div className="list-group" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {apiLibrary.map((api) => (
-            <div key={api.slug} className="row-item">
-              <div>
-                <strong>{api.name}</strong>
-                <div className="small">{api.category} • {api.defaultMethod}</div>
-              </div>
-              <span className="small">{api.baseUrl}</span>
+        <div className="panel doc-panel">
+          <div className="panel-header">
+            <h3>{active}</h3>
+            {active === 'CORS & Errors' ? <ShieldCheck size={18} /> : active === 'Adding APIs' ? <BookOpenText size={18} /> : <TerminalSquare size={18} />}
+          </div>
+          <p>{sections[active]}</p>
+          <div className="doc-grid">
+            <div>
+              <strong>Local statistics</strong>
+              <p>Request counts, success/failure totals, and average response times are stored only in the browser session. They are not global or shared across users.</p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="panel mt-2">
-        <h3>Error handling</h3>
-        <div className="notice warn mb-2">
-          <strong>Request timeout:</strong> Default 15 seconds. If a request takes longer, it will be aborted and reported as a timeout.
-        </div>
-        <div className="notice error mb-2">
-          <strong>HTTP errors:</strong> Status codes 400+ are displayed with the actual error message from the server.
-        </div>
-        <div className="notice error mb-2">
-          <strong>Network errors:</strong> CORS blocks, DNS failures, and connection refused errors are shown accurately.
+            <div>
+              <strong>API keys</strong>
+              <p>Authenticated APIs require a backend or environment variable. The frontend should never expose private credentials.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

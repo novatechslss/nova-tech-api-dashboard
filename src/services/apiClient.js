@@ -8,16 +8,6 @@ export function validateUrl(url) {
   }
 }
 
-export function getSafeJson(data) {
-  if (data === undefined || data === null) return 'null';
-  if (typeof data === 'string') return JSON.stringify(data, null, 2);
-  try {
-    return JSON.stringify(data, null, 2);
-  } catch {
-    return String(data);
-  }
-}
-
 export function normalizeHeaders(rawHeaders) {
   if (!rawHeaders) return {};
   if (typeof rawHeaders.entries === 'function') {
@@ -40,13 +30,12 @@ export async function makeRequest({ url, method = 'GET', body = null, headers = 
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
+  const startedAt = performance.now();
   const fetchHeaders = { ...headers };
 
   if (body && !fetchHeaders['Content-Type'] && !fetchHeaders['content-type']) {
     fetchHeaders['Content-Type'] = 'application/json';
   }
-
-  const startedAt = performance.now();
 
   try {
     const response = await fetch(url, {
@@ -58,18 +47,11 @@ export async function makeRequest({ url, method = 'GET', body = null, headers = 
 
     const rawText = await response.text();
     let payload = rawText;
-    let parsed = null;
-
-    if (rawText) {
-      try {
-        parsed = JSON.parse(rawText);
-        payload = parsed;
-      } catch {
-        payload = rawText;
-      }
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      payload = rawText;
     }
-
-    const timeMs = Math.round(performance.now() - startedAt);
 
     return {
       ok: response.ok,
@@ -78,21 +60,14 @@ export async function makeRequest({ url, method = 'GET', body = null, headers = 
       headers: normalizeHeaders(response.headers),
       data: payload,
       text: rawText,
-      timeMs,
+      timeMs: Math.round(performance.now() - startedAt),
       error: null,
     };
   } catch (error) {
-    const e = error;
-    const timeMs = Math.round(performance.now() - startedAt);
-
-    let message = e?.message || 'Request failed';
-    if (e?.name === 'AbortError') {
-      message = 'Request timed out.';
-    }
-
-    if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('TypeError')) {
-      message = 'Browser access blocked by CORS; server availability not confirmed';
-    }
+    const message = error?.name === 'AbortError' ? 'Request timed out.' : error?.message || 'Request failed';
+    const friendly = /Failed to fetch|TypeError|NetworkError|fetch/i.test(message)
+      ? 'Browser access blocked by CORS; server availability not confirmed.'
+      : message;
 
     return {
       ok: false,
@@ -101,8 +76,8 @@ export async function makeRequest({ url, method = 'GET', body = null, headers = 
       headers: {},
       data: null,
       text: '',
-      timeMs,
-      error: message,
+      timeMs: Math.round(performance.now() - startedAt),
+      error: friendly,
     };
   } finally {
     clearTimeout(timer);

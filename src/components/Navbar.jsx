@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Menu, X, Globe } from 'lucide-react';
+import { Menu, X, Globe2, Search, Terminal, BookOpen, Settings, Activity } from 'lucide-react';
 import apiLibrary from '../data/apiLibrary';
 
 const navItems = [
-  { to: '/', label: 'Home' },
-  { to: '/all-apis', label: 'All APIs' },
-  { to: '/api-monitor', label: 'API Monitor' },
-  { to: '/documentation', label: 'Documentation' },
-  { to: '/rest-examples', label: 'REST Examples' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/', label: 'Home', icon: Activity },
+  { to: '/all-apis', label: 'All APIs', icon: Search },
+  { to: '/api-monitor', label: 'API Monitor', icon: Activity },
+  { to: '/documentation', label: 'Documentation', icon: BookOpen },
+  { to: '/rest-examples', label: 'REST Examples', icon: Terminal },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function Navbar() {
@@ -20,19 +20,20 @@ export default function Navbar() {
       <div className="nav-inner">
         <Link to="/" className="brand" aria-label="NOVA TECH API home">
           <span className="brand-mark">
-            <Globe size={18} />
+            <Globe2 size={18} />
           </span>
           <span>NOVA TECH API</span>
         </Link>
 
         <nav className="nav-links" aria-label="Main navigation">
-          {navItems.map((item) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
-              key={item.to}
-              to={item.to}
+              key={to}
+              to={to}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
-              {item.label}
+              <Icon size={14} />
+              {label}
             </NavLink>
           ))}
         </nav>
@@ -43,7 +44,7 @@ export default function Navbar() {
           onClick={() => setOpen((prev) => !prev)}
           aria-label="Open API menu"
         >
-          <Menu size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+          <Menu size={16} />
           Menu
         </button>
       </div>
@@ -54,7 +55,7 @@ export default function Navbar() {
           <aside className="sidebar" aria-label="API drawer">
             <div className="sidebar-header">
               <strong>API Modules ({apiLibrary.length})</strong>
-              <button type="button" className="menu-button" onClick={() => setOpen(false)} aria-label="Close menu">
+              <button type="button" className="menu-button" onClick={() => setOpen(false)}>
                 <X size={16} />
               </button>
             </div>
@@ -68,10 +69,11 @@ export default function Navbar() {
                     className="sidebar-item"
                     onClick={() => setOpen(false)}
                   >
-                    <div style={{ flex: 1 }}>
-                      <strong style={{ display: 'block' }}>{api.name}</strong>
-                      <span className="small">{api.category}</span>
+                    <div>
+                      <strong>{api.name}</strong>
+                      <div className="tiny-muted">{api.category}</div>
                     </div>
+                    <span className="tiny-pill">{api.defaultMethod}</span>
                   </Link>
                 ))}
               </div>

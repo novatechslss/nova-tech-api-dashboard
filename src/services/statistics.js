@@ -11,15 +11,15 @@ export function getStatsSnapshot() {
 
 export function getApiStats(apiId) {
   const snapshot = getStatsSnapshot();
-  const existing = snapshot[apiId] || {
+  const state = snapshot[apiId] || {
     totalRequests: 0,
     successfulResponses: 0,
     httpFailures: 0,
     networkFailures: 0,
-    lastRequestTime: null,
     averageResponseTime: 0,
+    lastRequestTime: null,
   };
-  return { ...existing };
+  return { ...state };
 }
 
 export function updateApiStats(apiId, result) {
@@ -29,26 +29,25 @@ export function updateApiStats(apiId, result) {
     successfulResponses: 0,
     httpFailures: 0,
     networkFailures: 0,
-    lastRequestTime: null,
     averageResponseTime: 0,
+    lastRequestTime: null,
   };
 
-  const timeMs = Number(result.timeMs || 0);
   const next = {
     ...current,
     totalRequests: (current.totalRequests || 0) + 1,
     lastRequestTime: new Date().toISOString(),
     averageResponseTime: current.totalRequests
-      ? ((current.averageResponseTime * current.totalRequests) + timeMs) / (current.totalRequests + 1)
-      : timeMs,
+      ? ((current.averageResponseTime * current.totalRequests) + Number(result.timeMs || 0)) / (current.totalRequests + 1)
+      : Number(result.timeMs || 0),
   };
 
   if (result.ok) {
-    next.successfulResponses = (next.successfulResponses || 0) + 1;
-  } else if (result.status >= 400) {
-    next.httpFailures = (next.httpFailures || 0) + 1;
+    next.successfulResponses = (current.successfulResponses || 0) + 1;
+  } else if ((result.status || 0) >= 400) {
+    next.httpFailures = (current.httpFailures || 0) + 1;
   } else {
-    next.networkFailures = (next.networkFailures || 0) + 1;
+    next.networkFailures = (current.networkFailures || 0) + 1;
   }
 
   snapshot[apiId] = next;
@@ -68,13 +67,14 @@ export function resetAllStats() {
 
 export function getSessionSummary() {
   const snapshot = getStatsSnapshot();
-  const all = Object.values(snapshot);
-  const totalRequests = all.reduce((sum, item) => sum + (item.totalRequests || 0), 0);
-  const successful = all.reduce((sum, item) => sum + (item.successfulResponses || 0), 0);
-  const httpFailures = all.reduce((sum, item) => sum + (item.httpFailures || 0), 0);
-  const networkFailures = all.reduce((sum, item) => sum + (item.networkFailures || 0), 0);
-  const avg = all.length
-    ? all.reduce((sum, item) => sum + (item.averageResponseTime || 0), 0) / all.length
+  const values = Object.values(snapshot);
+
+  const totalRequests = values.reduce((sum, item) => sum + (item.totalRequests || 0), 0);
+  const successful = values.reduce((sum, item) => sum + (item.successfulResponses || 0), 0);
+  const httpFailures = values.reduce((sum, item) => sum + (item.httpFailures || 0), 0);
+  const networkFailures = values.reduce((sum, item) => sum + (item.networkFailures || 0), 0);
+  const averageResponseTime = values.length
+    ? values.reduce((sum, item) => sum + (item.averageResponseTime || 0), 0) / values.length
     : 0;
 
   return {
@@ -82,6 +82,6 @@ export function getSessionSummary() {
     successful,
     httpFailures,
     networkFailures,
-    averageResponseTime: avg,
+    averageResponseTime,
   };
 }
