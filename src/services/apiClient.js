@@ -1,85 +1,84 @@
-export function validateUrl(url) {
-  if (!url || typeof url !== 'string') return false;
-  try {
-    const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
-
-export function normalizeHeaders(rawHeaders) {
-  if (!rawHeaders) return {};
-  if (typeof rawHeaders.entries === 'function') {
-    return Object.fromEntries(rawHeaders.entries());
-  }
-  if (typeof rawHeaders.forEach === 'function') {
-    const out = {};
-    rawHeaders.forEach((value, key) => {
-      out[key] = value;
-    });
-    return out;
-  }
-  return rawHeaders;
-}
-
-export async function makeRequest({ url, method = 'GET', body = null, headers = {}, timeout = 15000 }) {
-  if (!validateUrl(url)) {
-    throw new Error('Invalid URL. Use http:// or https:// only.');
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  const startedAt = performance.now();
-  const fetchHeaders = { ...headers };
-
-  if (body && !fetchHeaders['Content-Type'] && !fetchHeaders['content-type']) {
-    fetchHeaders['Content-Type'] = 'application/json';
-  }
-
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: fetchHeaders,
-      body: body && method !== 'GET' && method !== 'HEAD' ? body : undefined,
-      signal: controller.signal,
-    });
-
-    const rawText = await response.text();
-    let payload = rawText;
-    try {
-      payload = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      payload = rawText;
+/**
+ * Shared API Client Service
+ */
+export const apiClient = {
+  async request(url, options = {}, timeout = 10000) {
+    if (!url || typeof url !== 'string') {
+      return { success: false, status: 0, statusText: 'Invalid URL', data: null, error: 'Invalid URL provided', headers: {}, timing: 0 };
     }
 
-    return {
-      ok: response.ok,
-      status: response.status,
-      statusText: response.statusText,
-      headers: normalizeHeaders(response.headers),
-      data: payload,
-      text: rawText,
-      timeMs: Math.round(performance.now() - startedAt),
-      error: null,
-    };
-  } catch (error) {
-    const message = error?.name === 'AbortError' ? 'Request timed out.' : error?.message || 'Request failed';
-    const friendly = /Failed to fetch|TypeError|NetworkError|fetch/i.test(message)
-      ? 'Browser access blocked by CORS; server availability not confirmed.'
-      : message;
+    if (!/^https?:\/\//i.test(url)) {
+      return { success: false, status: 0, statusText: 'Invalid Protocol', data: null, error: 'Only HTTP/HTTPS protocols are supported', headers: {}, timing: 0 };
+    }
 
-    return {
-      ok: false,
-      status: 0,
-      statusText: 'Request failed',
-      headers: {},
-      data: null,
-      text: '',
-      timeMs: Math.round(performance.now() - startedAt),
-      error: friendly,
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const startedAt = Date.now();
+
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      const headers = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
+      try {
+        if (contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = await response.text();
+        }
+      } catch {
+        data = null;
+      }
+
+      clearTimeout(timeoutId);
+
+      return {
+        success: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        data,
+        error: response.ok ? null : `HTTP ${response.status}`,
+        headers,
+        timing: Date.now() - startedAt,
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      const timing = Date.now() - startedAt;
+      let message = 'Network error';
+      if (error.name === 'AbortError') message = `Request timeout after ${timeout}ms`;
+      else if (error instanceof TypeError) message = 'CORS blocked or network unavailable';
+      else if (error.message) message = error.message;
+
+      return {
+        success: false,
+        status: 0,
+        statusText: error.name === 'AbortError' ? 'Timeout' : 'Error',
+        data: null,
+        error: message,
+        headers: {},
+        timing,
+      };
+    }
+  },
+
+  get(url, options = {}, timeout = 10000) {
+    return this.request(url, { ...options, method: 'GET' }, timeout);
+  },
+
+  post(url, payload = null, options = {}, timeout = 10000) {
+    const requestOptions = { ...options, method: 'POST' };
+    if (payload !== null) {
+      requestOptions.body = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      if (typeof payload !== 'string') {
+        requestOptions.headers = { 'Content-Type': 'application/json', ...requestOptions.headers };
+      }
+    }
+    return this.request(url, requestOptions, timeout);
+  },
+};
+
+export default apiClient;

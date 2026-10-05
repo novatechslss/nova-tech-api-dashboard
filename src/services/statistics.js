@@ -1,6 +1,6 @@
-const STORAGE_KEY = 'nova-tech-api-stats-v1';
+const STORAGE_KEY = 'nova-tech-api-statistics';
 
-export function getStatsSnapshot() {
+export function getStatistics() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -9,79 +9,23 @@ export function getStatsSnapshot() {
   }
 }
 
-export function getApiStats(apiId) {
-  const snapshot = getStatsSnapshot();
-  const state = snapshot[apiId] || {
-    totalRequests: 0,
-    successfulResponses: 0,
-    httpFailures: 0,
-    networkFailures: 0,
-    averageResponseTime: 0,
-    lastRequestTime: null,
-  };
-  return { ...state };
+export function recordRequest(apiName, success, duration, statusCode) {
+  const stats = getStatistics();
+  const existing = stats[apiName] || { count: 0, success: 0, failed: 0, duration: 0, lastStatus: 'unknown' };
+
+  existing.count += 1;
+  existing.success += success ? 1 : 0;
+  existing.failed += success ? 0 : 1;
+  existing.duration = Math.round(((existing.duration * (existing.count - 1)) + (duration || 0)) / existing.count);
+  existing.lastStatus = statusCode || existing.lastStatus;
+  existing.lastUpdated = new Date().toISOString();
+
+  stats[apiName] = existing;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+  return stats[apiName];
 }
 
-export function updateApiStats(apiId, result) {
-  const snapshot = getStatsSnapshot();
-  const current = snapshot[apiId] || {
-    totalRequests: 0,
-    successfulResponses: 0,
-    httpFailures: 0,
-    networkFailures: 0,
-    averageResponseTime: 0,
-    lastRequestTime: null,
-  };
-
-  const next = {
-    ...current,
-    totalRequests: (current.totalRequests || 0) + 1,
-    lastRequestTime: new Date().toISOString(),
-    averageResponseTime: current.totalRequests
-      ? ((current.averageResponseTime * current.totalRequests) + Number(result.timeMs || 0)) / (current.totalRequests + 1)
-      : Number(result.timeMs || 0),
-  };
-
-  if (result.ok) {
-    next.successfulResponses = (current.successfulResponses || 0) + 1;
-  } else if ((result.status || 0) >= 400) {
-    next.httpFailures = (current.httpFailures || 0) + 1;
-  } else {
-    next.networkFailures = (current.networkFailures || 0) + 1;
-  }
-
-  snapshot[apiId] = next;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-  return next;
-}
-
-export function resetApiStats(apiId) {
-  const snapshot = getStatsSnapshot();
-  delete snapshot[apiId];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-}
-
-export function resetAllStats() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
-}
-
-export function getSessionSummary() {
-  const snapshot = getStatsSnapshot();
-  const values = Object.values(snapshot);
-
-  const totalRequests = values.reduce((sum, item) => sum + (item.totalRequests || 0), 0);
-  const successful = values.reduce((sum, item) => sum + (item.successfulResponses || 0), 0);
-  const httpFailures = values.reduce((sum, item) => sum + (item.httpFailures || 0), 0);
-  const networkFailures = values.reduce((sum, item) => sum + (item.networkFailures || 0), 0);
-  const averageResponseTime = values.length
-    ? values.reduce((sum, item) => sum + (item.averageResponseTime || 0), 0) / values.length
-    : 0;
-
-  return {
-    totalRequests,
-    successful,
-    httpFailures,
-    networkFailures,
-    averageResponseTime,
-  };
+export function resetStatistics() {
+  localStorage.removeItem(STORAGE_KEY);
+  return {};
 }
